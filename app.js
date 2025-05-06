@@ -27,6 +27,7 @@ app.get('/api/products', async (req, res) => {
     }
   });
 
+//Display All Products
 app.get("/api/all-products",async(req,res)=>{
   try{
   const products = await Product.find()
@@ -59,6 +60,20 @@ app.get("/api/product/:id", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch product" });
   }
+});
+
+//Search
+app.get("/api/search", async (req, res) => {
+  const query = req.query.query;
+  console.log(query);
+  
+  if (!query) return res.json({ products: [] });
+
+  const products = await Product.find({
+    name: { $regex: query, $options: "i" },
+  }).limit(10);
+
+  res.json({ products });
 });
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
