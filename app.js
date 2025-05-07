@@ -3,12 +3,14 @@ dotenv.config();
 
 import express from "express"
 import Product from "./models/Product.js"
+import User from "./models/User.js";
 import connectDB from "./lib/dbConnect.js"
 import cors from "cors"
 
 const app = express()
 const port = 3000
 app.use(cors())
+app.use(express.json())
 connectDB(); // Connect to MongoDB
 
 
@@ -65,7 +67,7 @@ app.get("/api/product/:id", async (req, res) => {
 //Search
 app.get("/api/search", async (req, res) => {
   const query = req.query.query;
-  console.log(query);
+  // console.log(query);
   
   if (!query) return res.json({ products: [] });
 
@@ -75,5 +77,83 @@ app.get("/api/search", async (req, res) => {
 
   res.json({ products });
 });
+
+
+
+// User Signup
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { email, username, password } = req.body;
+
+    // Basic validation
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: existingUser.email === email 
+          ? "Email already in use" 
+          : "Username already taken"
+      });
+    }
+
+    // Create new user
+    const newUser = new User({ email, username, password });
+    await newUser.save();
+
+    // Return success response (without password)
+    res.status(201).json({
+      message: "User created successfully",
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        username: newUser.username,
+        createdAt: newUser.createdAt
+      }
+    });
+
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ error: "Server error during signup" });
+  }
+});
+
+// User Login
+app.post('/api/signin', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Login successful (in a real app, you'd generate a token here)
+    res.json({ 
+      message: "Login successful",
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username
+      }
+    });
+
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Server error during login" });
+  }
+});
+
+
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`))
